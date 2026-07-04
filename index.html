@@ -109,11 +109,34 @@
     margin:0; background:rgba(80,20,20,0.55); box-shadow:none; color:#ffbdbd; opacity:0.75;
   }
   .resetBtn:hover { opacity:1; }
+
+  #touchLeft, #touchRight {
+    position:absolute; top:0; width:50%; height:100%;
+    z-index:3; touch-action:none; -webkit-tap-highlight-color:transparent;
+  }
+  #touchLeft { left:0; }
+  #touchRight { right:0; }
+  #touchLeft.hidden, #touchRight.hidden { display:none; }
+
+  #rocketBtn {
+    position:absolute; bottom:24px; right:24px; width:76px; height:76px;
+    border-radius:50%; background:radial-gradient(circle at 35% 30%, #ffcc80, #d4451a 75%);
+    border:3px solid rgba(255,255,255,0.65); box-shadow:0 4px 12px rgba(0,0,0,0.55);
+    display:flex; align-items:center; justify-content:center; font-size:32px;
+    z-index:6; touch-action:none; user-select:none; -webkit-tap-highlight-color:transparent;
+    color:#fff; cursor:pointer;
+  }
+  #rocketBtn.active { filter:brightness(1.35); transform:scale(0.93); }
+  #rocketBtn.hidden { display:none; }
 </style>
 </head>
 <body>
 <div id="gameContainer">
   <canvas id="game" width="920" height="620"></canvas>
+
+  <div id="touchLeft" class="hidden"></div>
+  <div id="touchRight" class="hidden"></div>
+  <div id="rocketBtn" class="hidden">🚀</div>
 
   <div id="hud" class="hidden">
     <div class="row"><span>💵 Cash</span><b id="hudCash">0</b></div>
@@ -434,6 +457,9 @@ nextBtnEl.onclick = () => {
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const W = canvas.width, H = canvas.height;
+const touchLeftEl = document.getElementById('touchLeft');
+const touchRightEl = document.getElementById('touchRight');
+const rocketBtnEl = document.getElementById('rocketBtn');
 const GROUND_Y = H - 80;
 const RAMP_START = { x: 40, y: 110 };
 const RAMP_BOTTOM = { x: 200, y: GROUND_Y - 4 };
@@ -647,6 +673,10 @@ function showStory() {
   hudEl.classList.add('hidden');
   dayBadgeEl.classList.add('hidden');
   instructionsEl.classList.add('hidden');
+  touchLeftEl.classList.add('hidden');
+  touchRightEl.classList.add('hidden');
+  rocketBtnEl.classList.add('hidden');
+  pitchLeftHeld = false; pitchRightHeld = false; boosting = false;
 }
 
 function startRun() {
@@ -668,6 +698,9 @@ function startRun() {
   hudEl.classList.remove('hidden');
   dayBadgeEl.classList.remove('hidden');
   instructionsEl.classList.remove('hidden');
+  touchLeftEl.classList.remove('hidden');
+  touchRightEl.classList.remove('hidden');
+  rocketBtnEl.classList.toggle('hidden', state.rocket < 1);
   instructionsEl.textContent = 'Sliding down the ramp...';
   computerToggleBtnEl.classList.toggle('hidden', state.computer < 1);
   updateComputerToggleLabel();
@@ -719,6 +752,10 @@ function endFlight() {
   dayBadgeEl.classList.add('hidden');
   instructionsEl.classList.add('hidden');
   computerToggleBtnEl.classList.add('hidden');
+  touchLeftEl.classList.add('hidden');
+  touchRightEl.classList.add('hidden');
+  rocketBtnEl.classList.add('hidden');
+  pitchLeftHeld = false; pitchRightHeld = false; boosting = false;
 }
 
 // ---------- Input ----------
@@ -733,6 +770,28 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'ArrowLeft') { e.preventDefault(); pitchLeftHeld = false; }
   if (e.code === 'ArrowRight') { e.preventDefault(); pitchRightHeld = false; }
 });
+
+// Touch/mouse controls: tap-and-hold left half of screen to climb, right half to
+// dive, and the rocket button to boost. Works with touch and mouse (for testing).
+function bindHold(el, onStart, onEnd) {
+  const start = (e) => { e.preventDefault(); onStart(); };
+  const end = (e) => { e.preventDefault(); onEnd(); };
+  el.addEventListener('touchstart', start, { passive: false });
+  el.addEventListener('touchend', end);
+  el.addEventListener('touchcancel', end);
+  el.addEventListener('mousedown', start);
+  el.addEventListener('mouseup', end);
+  el.addEventListener('mouseleave', end);
+}
+bindHold(touchLeftEl,
+  () => { if (mode === 'flying') pitchLeftHeld = true; },
+  () => { pitchLeftHeld = false; });
+bindHold(touchRightEl,
+  () => { if (mode === 'flying') pitchRightHeld = true; },
+  () => { pitchRightHeld = false; });
+bindHold(rocketBtnEl,
+  () => { if (mode === 'flying') { boosting = true; rocketBtnEl.classList.add('active'); } },
+  () => { boosting = false; rocketBtnEl.classList.remove('active'); });
 
 // ---------- Update loop ----------
 function update() {
